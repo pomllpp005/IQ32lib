@@ -163,7 +163,7 @@ typedef struct {
 } SSD1306_Font_t;
 
 // Procedure definitions
-void OLED_ShowMuxGraph(uint16_t* muxValues, uint16_t threshold);
+void OLED_ShowMuxGraph(uint16_t* muxValues, uint16_t threshold,uint32_t Position);
 void OLED_ShowSInt(const char* str, int value, uint8_t x, uint8_t y);
 void OLED_ShowInt(int value, uint8_t x, uint8_t y);
 void OLED_ShowFloat(float value, uint8_t decimalPlaces, uint8_t x, uint8_t y);

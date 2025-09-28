@@ -111,6 +111,7 @@ void ssd1306_RotateScreen(SSD1306_Orientation_t orientation) {
     }
 }
 
+
 // ----------------- Init -----------------
 void ssd1306_Init(void) {
     ssd1306_Reset();
@@ -203,7 +204,7 @@ char ssd1306_WriteString(char* str, SSD1306_Font_t Font, SSD1306_COLOR color) {
     return *str;
 }
 void ssd1306_SetCursorLine(uint8_t col, uint8_t line, SSD1306_Font_t Font) {
-    SSD1306.CurrentX = col;
+    SSD1306.CurrentX = col*Font.width;
     SSD1306.CurrentY = line * Font.height;
 }
 void OLED_ShowInt(int value, uint8_t x, uint8_t y) {
@@ -253,7 +254,7 @@ void ssd1306_FillRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD13
         }
     }
 }
-void OLED_ShowMuxGraph(uint16_t* muxValues, uint16_t threshold)
+void OLED_ShowMuxGraph(uint16_t* muxValues, uint16_t threshold,uint32_t Position)
 {
     // เคลียร์หน้าจอ
     ssd1306_Fill(Black);
@@ -268,7 +269,7 @@ void OLED_ShowMuxGraph(uint16_t* muxValues, uint16_t threshold)
     
     // แสดงข้อมูลบนบรรทัดแรก
     char info_str[32];
-    sprintf(info_str, "MUX Thr:%d Act:%d", threshold, activeCount);
+    sprintf(info_str, "MUX Thr:%d Act:%d", threshold, Position);
     ssd1306_SetCursorLine(0, 0, Font_6x8);
     ssd1306_WriteString(info_str, Font_6x8, White);
     
@@ -289,25 +290,6 @@ void OLED_ShowMuxGraph(uint16_t* muxValues, uint16_t threshold)
                                 graphY + GRAPH_HEIGHT - 1, 
                                 White);
         }
-        //  else {
-        //     // วาดเฉพาะกรอบแท่ง (แท่งว่าง)
-        //     // วาดขอบบน
-        //     for(int x = 0; x < BAR_WIDTH; x++) {
-        //         ssd1306_DrawPixel(barX + x, graphY, White);
-        //     }
-        //     // วาดขอบล่าง  
-        //     for(int x = 0; x < BAR_WIDTH; x++) {
-        //         ssd1306_DrawPixel(barX + x, graphY + GRAPH_HEIGHT - 1, White);
-        //     }
-        //     // วาดขอบซ้าย
-        //     for(int y = 0; y < GRAPH_HEIGHT; y++) {
-        //         ssd1306_DrawPixel(barX, graphY + y, White);
-        //     }
-        //     // วาดขอบขวา
-        //     for(int y = 0; y < GRAPH_HEIGHT; y++) {
-        //         ssd1306_DrawPixel(barX + BAR_WIDTH - 1, graphY + y, White);
-        //     }
-        // }
         
         // แสดงหมายเลขช่อง (0-F) ใต้แท่ง
         if(i < 10) {

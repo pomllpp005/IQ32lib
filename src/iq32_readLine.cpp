@@ -31,7 +31,7 @@ IQ32_Result_t LineSensor_Calibrate(uint32_t calibrationTime)
 
     // ค่าเริ่มต้น min/max
     for(int i = 0; i < MAX_SENSORS; i++) {
-        lineSensor.calibratedMin[i] = (1 << ADC_BITS) - 1; // 4095
+        lineSensor.calibratedMin[i] = 4095; // 4095
         lineSensor.calibratedMax[i] = 0;
     }
 
@@ -56,8 +56,9 @@ void LineSensor_ReadCalibrated(void)
     LineSensor_ReadRaw();  // อ่านค่า raw
 
     for (int i = 0; i < MAX_SENSORS; i++) {
-        int value = map(lineSensor.rawValues[i],lineSensor.calibratedMin[i],lineSensor.calibratedMax[i],0, 1000);
-        value = CONSTRAIN(value, 0, 1000);
+        uint16_t value = map(lineSensor.rawValues[i],lineSensor.calibratedMin[i],lineSensor.calibratedMax[i],0, 1000);
+        if(value>900) value = 1000;
+        else if(value<200) value = 0;
         lineSensor.sensorValues[i] = value;
     }
 }
@@ -66,28 +67,32 @@ uint16_t LineSensor_ReadPosition(void)
 {
     LineSensor_ReadCalibrated();  // อ่านค่า calibrate
 
+    lineSensor.isOnLine = false;
     uint32_t sum = 0;
     uint32_t weightedSum = 0;
 
     for (int i = 0; i < MAX_SENSORS; i++) {
-        if (lineSensor.sensorValues[i] >= lineSensor.threshold) {
+
+        if(lineSensor.sensorValues[i]>200){
+            lineSensor.isOnLine = true;
+        }
+        if (lineSensor.sensorValues[i] > 50) {
             sum += lineSensor.sensorValues[i];
             weightedSum += (uint32_t)lineSensor.sensorValues[i] * (i * 1000);
         }
     }
-
-    if (sum > 0) {
-        lineSensor.position = weightedSum / sum;
-        lineSensor.isOnLine = true;
-    } else {
-        lineSensor.position = 0;
-        lineSensor.isOnLine = false;
+    if(!lineSensor.isOnLine){
+        if(lineSensor.position<(MAX_SENSORS-1)*1000/2)return 0;
+        else return (MAX_SENSORS-1)*1000;
     }
+        lineSensor.position = weightedSum / sum;
+    
 
     return lineSensor.position;
 }
 
 bool LineSensor_IsOnLine(void)
 {
+    
     return lineSensor.isOnLine;
 }

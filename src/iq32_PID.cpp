@@ -6,8 +6,8 @@
 
 // --- Config ---
 #define NUM_SENSORS 16
-#define SENSOR_CENTER (NUM_SENSORS - 1) * 1000 / 2
-#define TURN_SPEED 1000
+#define SENSOR_CENTER 7500 //((NUM_SENSORS - 1) * 1000)/ 2
+#define TURN_SPEED 255
 #define CONSTRAIN(x,a,b) ((x)<(a)?(a):((x)>(b)?(b):(x)))
 uint16_t sensorValues[NUM_SENSORS];
 // --- PID Controller ---
@@ -45,38 +45,46 @@ int32_t PID_Calculate(int16_t error) {
 // ------------------ Main Algorithm ------------------
 IQ32_Result_t iq32_PID(int16_t baseSpeed, int16_t maxSpeed, int16_t turn,float kp, float kd) {
     PID_Reset();
-    PID_SetParameters(kp, kd, 0.9f);
+    
     pidController.baseSpeed = baseSpeed;
     pidController.maxSpeed  = maxSpeed;
     pidController.isRunning = true;
 
     while(pidController.isRunning) {
-        uint16_t pos = LineSensor_ReadPosition();
+        uint32_t pos = LineSensor_ReadPosition();
         bool onLine = LineSensor_IsOnLine();
+        pidController.error = pos - SENSOR_CENTER;
+        pidController.deltaError = pidController.error - pidController.previousError;
+        pidController.previousError = pidController.error;
 
         if(onLine && pos && pos != (NUM_SENSORS - 1) * 1000) {
-            if(sensorValues[0]) lastDetectedSide = 0;
-            if(sensorValues[NUM_SENSORS-1]) lastDetectedSide = 1;
+            if(lineSensor.sensorValues[0]) lastDetectedSide = 0;
+            if(lineSensor.sensorValues[NUM_SENSORS-1]) lastDetectedSide = 1;
 
-            pidController.error = pos - SENSOR_CENTER;
-            pidController.controlSignal = PID_Calculate(pidController.error);
+            pidController.controlSignal = (pidController.error * kp) + ((pidController.error - pidController.lastError) * kd);
+            pidController.lastError = pidController.error;
+            int motorL = baseSpeed + pidController.controlSignal;
+            int motorR = baseSpeed - pidController.controlSignal;
 
-            int motorL = CONSTRAIN(baseSpeed + pidController.controlSignal, -maxSpeed, maxSpeed);
-            int motorR = CONSTRAIN(baseSpeed - pidController.controlSignal, -maxSpeed, maxSpeed);
+            if(motorL > maxSpeed) motorL = maxSpeed;
+            else if(motorL < -maxSpeed) motorL = -maxSpeed;
+
+            if(motorR > maxSpeed) motorR = maxSpeed;
+            else if(motorR < -maxSpeed) motorR = -maxSpeed;
 
             Motor1(motorL);
             Motor2(motorR);
         } else {
-            if(lastDetectedSide == 0) {
-                Motor1(-turn);
-                Motor2(maxSpeed);
-            } else {
-                Motor1(maxSpeed);
-                Motor2(-turn);
-            }
+                if(!lastDetectedSide) {
+                    Motor1(-turn);
+                    Motor2(maxSpeed);
+                } else {
+                    Motor1(maxSpeed);
+                    Motor2(-turn);
+                }
         }
 
-        HAL_Delay(10);
+       
     }
     return IQ32_OK;
 }
@@ -86,7 +94,6 @@ IQ32_Result_t iq32_PIDtime(int16_t baseSpeed, int16_t maxSpeed, int16_t turn,flo
     const uint32_t OUT_OF_LINE_TIMEOUT_MS = 500; // ระยะเวลาอนุญาตให้หลุดเส้น
     const uint16_t speedFan = 400; // ความเร็วพัดลม (0-255)
     PID_Reset();
-    PID_SetParameters(kp, kd, 0.9f);
     pidController.baseSpeed = baseSpeed;
     pidController.maxSpeed  = maxSpeed;
     pidController.isRunning = true;
@@ -96,25 +103,33 @@ IQ32_Result_t iq32_PIDtime(int16_t baseSpeed, int16_t maxSpeed, int16_t turn,flo
 
     // เริ่มสั่งพัดลม
     Fan_SetSpeed(speedFan);  // ปรับเป็น speed ที่ต้องการ
+    HAL_Delay(500);
 
     while((HAL_GetTick() - start) < runTimeMs && pidController.isRunning) {
-        uint16_t pos = LineSensor_ReadPosition();
+        uint32_t pos = LineSensor_ReadPosition();
         bool onLine = LineSensor_IsOnLine();
+        pidController.error = pos - SENSOR_CENTER;
+        pidController.deltaError = pidController.error - pidController.previousError;
+        pidController.previousError = pidController.error;
 
         if(onLine && pos && pos != (NUM_SENSORS - 1) * 1000) 
         {
             // รีเซ็ต Timer หลุดเส้น
             outOfLineStart = HAL_GetTick();
 
-            // ตรวจสอบตำแหน่ง sensor ขอบซ้าย/ขวา
             if(lineSensor.sensorValues[0]) lastDetectedSide = 0;
             if(lineSensor.sensorValues[NUM_SENSORS-1]) lastDetectedSide = 1;
 
-            pidController.error = pos - SENSOR_CENTER;
-            pidController.controlSignal = PID_Calculate(pidController.error);
+            pidController.controlSignal = (pidController.error * kp) + ((pidController.error - pidController.lastError) * kd);
+            pidController.lastError = pidController.error;
+            int motorL = baseSpeed + pidController.controlSignal;
+            int motorR = baseSpeed - pidController.controlSignal;
 
-            int motorL = CONSTRAIN(baseSpeed + pidController.controlSignal, -maxSpeed, maxSpeed);
-            int motorR = CONSTRAIN(baseSpeed - pidController.controlSignal, -maxSpeed, maxSpeed);
+            if(motorL > maxSpeed) motorL = maxSpeed;
+            else if(motorL < -maxSpeed) motorL = -maxSpeed;
+
+            if(motorR > maxSpeed) motorR = maxSpeed;
+            else if(motorR < -maxSpeed) motorR = -maxSpeed;
 
             Motor1(motorL);
             Motor2(motorR);
@@ -122,13 +137,13 @@ IQ32_Result_t iq32_PIDtime(int16_t baseSpeed, int16_t maxSpeed, int16_t turn,flo
         } else {
             // ตรวจสอบว่า robot หลุดเส้นเกินเวลา
             if(outOfLineStart == 0) outOfLineStart = HAL_GetTick();
-            if((HAL_GetTick() - outOfLineStart) > OUT_OF_LINE_TIMEOUT_MS) {
+            if((HAL_GetTick() - outOfLineStart) > OUT_OF_LINE_TIMEOUT_MS) 
+            {
                 pidController.isRunning = false; // หยุด robot
                 break;
             }
-
             // หมุนกลับตาม lastDetectedSide
-            if(lastDetectedSide == 0) {
+            if(!lastDetectedSide) {
                 Motor1(-turn);
                 Motor2(maxSpeed);
             } else {
@@ -141,11 +156,14 @@ IQ32_Result_t iq32_PIDtime(int16_t baseSpeed, int16_t maxSpeed, int16_t turn,flo
     // หยุดมอเตอร์และพัดลม
     Motor1(0);
     Motor2(0);
+    HAL_Delay(1000);
     Fan_SetSpeed(0);
 
     pidController.isRunning = false;
     return IQ32_OK;
 }
+
+
 
 
 // ------------------ Advanced ------------------

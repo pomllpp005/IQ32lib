@@ -8,37 +8,23 @@ I2C_HandleTypeDef hi2c1;
 // --- ตั้งค่า Timer2 สำหรับ PWM บน PA0 (CH1), PA1 (CH2), PA2 (CH3) ---
 void MX_TIM2_Init(void)
 {
+
     __HAL_RCC_TIM2_CLK_ENABLE();
-    //====================1KHz====================
 
-    // htim2.Instance = TIM2;
-    // htim2.Init.Prescaler = 84 - 1;    // APB1=84MHz → 1MHz timer tick
-    // htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    // htim2.Init.Period = 1000 - 1;     // PWM 1 kHz
-
-    //====================5KHz====================
     htim2.Instance = TIM2;
-    htim2.Init.Prescaler = 84 - 1;    // APB1=84MHz → 1MHz timer tick
+    htim2.Init.Prescaler = 84 - 1;       // APB1=84MHz → 1 MHz timer tick
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = 200 - 1;     // PWM 5 kHz
 
+    // 1 MHz / (255+1) = 3906 Hz ≈ 3.9 kHz (ใกล้เคียง 5 kHz)
+    htim2.Init.Period = 255;             // 8-bit resolution
 
-    //====================10KHz====================
-
-    // htim2.Instance = TIM2;
-    // htim2.Init.Prescaler = 84 - 1;    // APB1=84MHz → 1MHz timer tick
-    // htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    // htim2.Init.Period = 100 - 1;     // PWM 10 kHz
-
-
-    //======================END=======================
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     HAL_TIM_PWM_Init(&htim2);
 
     TIM_OC_InitTypeDef sConfigOC = {0};
     sConfigOC.OCMode = TIM_OCMODE_PWM1;
-    sConfigOC.Pulse = 0;
+    sConfigOC.Pulse = 0;   // เริ่มต้นที่ 0 (Duty 0%)
     sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
     sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
 
@@ -52,6 +38,7 @@ void MX_TIM2_Init(void)
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+
 }
 void DWT_Init(void) {
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;  // Enable trace

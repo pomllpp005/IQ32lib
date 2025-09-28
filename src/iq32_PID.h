@@ -8,11 +8,13 @@
 
 typedef struct {
     float kp, kd, alpha;
-    int16_t error;
+    int32_t error;
     float filteredError, previousFilteredError;
-    int16_t previousError;
+    int32_t previousError;
     int32_t controlSignal;
     int16_t baseSpeed, maxSpeed, fanSpeed;
+    int32_t lastError;
+    int32_t deltaError;
     bool isRunning;
     uint32_t lastUpdateTime;
 } PIDController_t;
